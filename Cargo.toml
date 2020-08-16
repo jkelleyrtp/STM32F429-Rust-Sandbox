@@ -24,13 +24,3 @@ features = ["stm32f429", "rt"]
 [dependencies.stm32f4xx-hal]
 version = "0.8"
 features = ["rt", "stm32f429"] # replace the model of your microcontroller here
-
-
-# stm32f407g-disc = "0.4.0"
-# cortex-m = "0.6"
-# cortex-m-rt = "0.6"
-# Panic behaviour, see https://crates.io/keywords/panic-impl for alternatives
-# panic-halt = "0.2"
-# aux5 = { path = "auxiliary" }
-
-# libtock = {git = "https://github.com/tock/libtock-rs"}
