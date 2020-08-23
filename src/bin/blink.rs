@@ -1,4 +1,3 @@
-#![deny(unsafe_code)]
 #![no_main]
 #![no_std]
 
@@ -14,6 +13,7 @@ use hal::{
 };
 use stm32f4::stm32f429 as stm32;
 use stm32f4xx_hal as hal;
+use stm32f4xx_hal::otg_fs::{UsbBus, USB};
 
 /// Layout how we'll use the pins on the stm32
 /// https://www.st.com/resource/en/user_manual/dm00093903-discovery-kit-with-stm32f429zi-mcu-stmicroelectronics.pdf
@@ -36,16 +36,21 @@ impl BlinkConfig {
 
         // Set up the LED.
         // On the STM32F429, the red led is on pg14, and the green on pg13
-        let gpio = dp.GPIOG.split();
+        let gpiog = dp.GPIOG.split();
 
         // Set up the system clock. We want to run at 48MHz for this one.
         // We do this to create a delay abstraction based on SysTick
         let rcc = dp.RCC.constrain();
-        let clocks = rcc.cfgr.sysclk(48.mhz()).freeze();
-
+        let clocks = rcc
+            .cfgr
+            .use_hse(8.mhz())
+            .sysclk(48.mhz())
+            .pclk1(24.mhz())
+            .require_pll48clk()
+            .freeze();
         Self {
-            led_green: gpio.pg13.into_push_pull_output(),
-            led_red: gpio.pg14.into_push_pull_output(),
+            led_green: gpiog.pg13.into_push_pull_output(),
+            led_red: gpiog.pg14.into_push_pull_output(),
             delay: hal::delay::Delay::new(cp.SYST, clocks),
         }
     }
@@ -60,13 +65,14 @@ fn main() -> ! {
     } = BlinkConfig::setup();
 
     loop {
-        // On for 1s, off for 1s.
-        led_red.set_high().unwrap();
-        led_green.set_low().unwrap();
-        delay.delay_ms(1000_u32);
-
-        led_green.set_high().unwrap();
-        led_red.set_low().unwrap();
-        delay.delay_ms(1000_u32);
+        // Blink hello
+        for _ in 0..10 {
+            led_red.set_high();
+            led_green.set_high();
+            delay.delay_ms(50_u16);
+            led_red.set_low();
+            led_green.set_low();
+            delay.delay_ms(50_u16);
+        }
     }
 }
