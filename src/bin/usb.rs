@@ -21,13 +21,6 @@ static mut EP_MEMORY: [u32; 1024] = [0; 1024];
 /// Layout how we'll use the pins on the stm32
 /// https://www.st.com/resource/en/user_manual/dm00093903-discovery-kit-with-stm32f429zi-mcu-stmicroelectronics.pdf
 struct BlinkConfig {
-    // Configure the green led on the PG13 pin, in output mode, configured as push/pull
-    led_green: PG13<Output<PushPull>>,
-    led_red: PG14<Output<PushPull>>,
-
-    // Bind the delay method to the chip's clock
-    delay: hal::delay::Delay,
-
     usb_bus: UsbBusAllocator<UsbBus<USB>>,
 }
 
@@ -65,27 +58,22 @@ impl BlinkConfig {
 
         let usb_bus = UsbBus::new(usb, unsafe { &mut EP_MEMORY });
 
-        Self {
-            led_green: gpiog.pg13.into_push_pull_output(),
-            led_red: gpiog.pg14.into_push_pull_output(),
-            delay: hal::delay::Delay::new(cp.SYST, clocks),
-            usb_bus,
-        }
+        Self { usb_bus }
     }
 }
 
 fn create_usb(
     usb_bus: &UsbBusAllocator<UsbBus<USB>>,
 ) -> (SerialPort<UsbBus<USB>>, UsbDevice<UsbBus<USB>>) {
-    defmt::info!("Building");
+    defmt::info!("Building usb interface");
 
     let serial = usbd_serial::SerialPort::new(usb_bus);
 
-    let usb_dev = UsbDeviceBuilder::new(usb_bus, UsbVidPid(0x16c0, 0x27db))
-        .manufacturer("Fake company")
-        .product("Serial port")
+    // let usb_dev = UsbDeviceBuilder::new(usb_bus, UsbVidPid(0x1209, 0x0001))
+    let usb_dev = UsbDeviceBuilder::new(usb_bus, UsbVidPid(0x16c0, 0x27dd))
+        .manufacturer("COMPANY")
+        .product("SERIAL")
         .serial_number("TEST")
-        .device_class(usbd_serial::USB_CLASS_CDC)
         .build();
 
     (serial, usb_dev)
@@ -93,34 +81,15 @@ fn create_usb(
 
 #[entry]
 fn main() -> ! {
-    let BlinkConfig {
-        mut delay,
-        mut led_green,
-        mut led_red,
-        usb_bus,
-    } = BlinkConfig::setup();
+    let BlinkConfig { usb_bus } = BlinkConfig::setup();
 
     let (mut serial, mut usb_dev) = create_usb(&usb_bus);
 
-    // Blink hello
-    for _ in 0..10 {
-        led_red.set_high();
-        led_green.set_high();
-        delay.delay_ms(50_u16);
-        led_red.set_low();
-        led_green.set_low();
-        delay.delay_ms(50_u16);
-    }
-
     loop {
-        // On for 1s, off for 1s.
-        led_green.set_low().unwrap();
-
         if !usb_dev.poll(&mut [&mut serial]) {
             continue;
         }
         defmt::info!("Connection established");
-        led_green.set_high().unwrap();
 
         let mut buf = [0u8; 64];
 
